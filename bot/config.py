@@ -13,6 +13,8 @@ class Settings:
     bot_token: str
     data_dir: Path
     timezone: ZoneInfo
+    photo_intake_url: str | None
+    photo_intake_token: str | None
 
 
 def load_settings() -> Settings:
@@ -31,4 +33,13 @@ def load_settings() -> Settings:
     except Exception as exc:  # pragma: no cover - invalid tz should be obvious
         raise RuntimeError(f"Invalid timezone '{tz_name}': {exc}") from exc
 
-    return Settings(bot_token=token, data_dir=data_dir, timezone=timezone)
+    photo_intake_url = os.environ.get("PHOTO_INTAKE_URL")
+    photo_intake_token = os.environ.get("PHOTO_INTAKE_TOKEN")
+
+    return Settings(
+        bot_token=token,
+        data_dir=data_dir,
+        timezone=timezone,
+        photo_intake_url=photo_intake_url,
+        photo_intake_token=photo_intake_token,
+    )
