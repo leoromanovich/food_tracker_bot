@@ -18,6 +18,7 @@ from ..ui.keyboards import (
     condition_bool_keyboard,
     condition_well_being_keyboard,
     confirm_finish_keyboard,
+    start_keyboard,
 )
 
 router = Router()
@@ -129,7 +130,10 @@ async def cb_back_to_adding(callback: CallbackQuery, state: FSMContext) -> None:
 async def cb_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.clear()
-    await callback.message.answer("Запись отменена. Используйте /add, чтобы начать заново.")
+    await callback.message.answer(
+        "Запись отменена. Нажмите «Добавить еду», чтобы начать заново.",
+        reply_markup=start_keyboard(),
+    )
 
 
 @router.callback_query(FoodLogStates.confirm_finish, AddFlowAction.filter(F.action == "confirm"))
@@ -222,7 +226,8 @@ async def cb_condition_well_being(
     await callback.answer()
     await callback.message.answer(
         "Записал событие. Продукты сохранены в FoodLog и симптомы — в ConditionLog.\n"
-        f"Всего ингредиентов: {len(result.foods)}."
+        f"Всего ингредиентов: {len(result.foods)}.",
+        reply_markup=start_keyboard(),
     )
 
 
@@ -249,5 +254,6 @@ async def _cancel_condition(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.clear()
     await callback.message.answer(
-        "Фиксация отменена. Ничего не сохранено. Используйте /add, чтобы начать заново."
+        "Фиксация отменена. Ничего не сохранено. Нажмите «Добавить еду», чтобы начать заново.",
+        reply_markup=start_keyboard(),
     )
