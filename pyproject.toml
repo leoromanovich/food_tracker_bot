@@ -1,0 +1,19 @@
+[project]
+name = "food-calendar"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "aiogram>=3.23.0",
+    "nicegui>=3.4.1",
+    "pydantic>=2.12.5",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=0.24.0",
+    "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pytest.ini_options]
+markers = ["asyncio: mark test as asyncio-based"]
