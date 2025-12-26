@@ -39,3 +39,14 @@ class ConditionService:
             },
         }
         return render_frontmatter(payload)
+
+    async def persist_breath(self, timestamp: datetime, severity: str) -> ConditionRecord:
+        filename = f"{timestamp.strftime('%Y-%m-%d')}_breath.md"
+        payload = {
+            "date": timestamp.strftime("%Y-%m-%d"),
+            "time": timestamp.strftime("%H:%M"),
+            "symptoms": {"breath_smell": severity},
+        }
+        content = render_frontmatter(payload)
+        path = await self.file_store.write_text(Path(self.log_dir) / filename, content)
+        return ConditionRecord(path=path, content=content)
