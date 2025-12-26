@@ -6,9 +6,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import add_food, condition
-from bot.ui.callbacks import ConditionBoolAction, ConditionWellBeingAction
+from bot.handlers import add_food, breath, condition
+from bot.ui.callbacks import (
+    BreathSeverityAction,
+    ConditionBoolAction,
+    ConditionWellBeingAction,
+)
 from bot.fsm.states import FoodLogStates
+from bot.services.breath_reminder_service import BreathReminderService
 from bot.services.condition_service import ConditionService
 from bot.services.file_store import FileStore
 from bot.services.food_event_service import FoodEventService
@@ -26,19 +31,31 @@ class FakeTimeService:
         return "cafebabe"
 
 
+class StubChat:
+    def __init__(self, chat_id: int = 1):
+        self.id = chat_id
+
+
+class StubUser:
+    def __init__(self, user_id: int = 1):
+        self.id = user_id
+
+
 class StubMessage:
-    def __init__(self, text: str = ""):
+    def __init__(self, text: str = "", chat_id: int = 1):
         self.text = text
         self.replies: list[str] = []
+        self.chat = StubChat(chat_id)
 
     async def answer(self, text: str, reply_markup=None):
         self.replies.append(text)
 
 
 class StubCallback:
-    def __init__(self, message: StubMessage | None = None):
+    def __init__(self, message: StubMessage | None = None, user_id: int = 1):
         self.message = message or StubMessage()
         self.answers: list[str | None] = []
+        self.from_user = StubUser(user_id)
 
     async def answer(self, text: str | None = None, show_alert: bool = False):
         self.answers.append(text or "")
@@ -48,6 +65,7 @@ def _build_state(tmp_path: Path) -> FSMContext:
     file_store = FileStore(tmp_path)
     fake_time = FakeTimeService()
     condition_service = ConditionService(file_store)
+    reminder_service = BreathReminderService(file_store)
     service = FoodEventService(
         file_store=file_store,
         foods_service=FoodsService(file_store),
@@ -56,6 +74,7 @@ def _build_state(tmp_path: Path) -> FSMContext:
     )
     add_food.setup_dependencies(service, fake_time)
     condition.setup_dependencies(condition_service, fake_time)
+    breath.setup_dependencies(condition_service, fake_time, reminder_service)
 
     storage = MemoryStorage()
     return FSMContext(
@@ -208,6 +227,30 @@ async def _run_cancel_on_diarrhea_test(tmp_path: Path) -> None:
     )
     assert list((tmp_path / "FoodLog").glob("*.md")) == []
     assert list((tmp_path / "ConditionLog").glob("*.md")) == []
+
+
+def test_breath_logging_creates_daily_note(tmp_path: Path):
+    asyncio.run(_run_breath_logging(tmp_path))
+
+
+async def _run_breath_logging(tmp_path: Path) -> None:
+    _build_state(tmp_path)
+    callback = StubCallback(StubMessage())
+    await breath.cb_breath_severity(callback, BreathSeverityAction(level="strong"))
+    target = tmp_path / "ConditionLog" / "2025-03-12_breath.md"
+    assert target.exists()
+
+
+def test_breath_skip_does_not_create_file(tmp_path: Path):
+    asyncio.run(_run_breath_skip(tmp_path))
+
+
+async def _run_breath_skip(tmp_path: Path) -> None:
+    _build_state(tmp_path)
+    callback = StubCallback(StubMessage())
+    await breath.cb_breath_skip(callback)
+    targets = list((tmp_path / "ConditionLog").glob("*breath.md"))
+    assert targets == []
 
 
 def test_condition_only_flow(tmp_path: Path):
