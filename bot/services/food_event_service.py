@@ -5,13 +5,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List
 
-import yaml
-
 from ..domain.models import Condition, FoodEventDraft, PersistedEvent
 from ..domain.normalize import deduplicate_preserve_order, normalize_food_name
 from .condition_service import ConditionService
 from .file_store import FileStore
 from .foods_service import FoodsService
+from .markdown_helpers import build_log_filename, render_frontmatter
 from .time_service import TimeService
 
 
@@ -62,19 +61,14 @@ class FoodEventService:
     async def _write_food_log(
         self, timestamp: datetime, short_id: str, foods: List[str]
     ):
-        filename = self._build_filename(timestamp, short_id)
+        filename = build_log_filename(timestamp, short_id)
         payload = {
             "date": timestamp.strftime("%Y-%m-%d"),
             "time": timestamp.strftime("%H:%M"),
             "foods": [f"[[{food}]]" for food in foods],
         }
-        yaml_body = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False).strip()
-        content = f"---\n{yaml_body}\n---\n"
+        content = render_frontmatter(payload)
         return await self.file_store.write_text(Path(self.food_log_dir) / filename, content)
-
-    def _build_filename(self, timestamp: datetime, short_id: str) -> str:
-        slug = timestamp.strftime("%Y-%m-%d_%H-%M-%S")
-        return f"{slug}_{short_id}.md"
 
     def _normalize_foods(self, foods: Iterable[str]) -> List[str]:
         normalized = [normalize_food_name(food) for food in foods if food.strip()]
