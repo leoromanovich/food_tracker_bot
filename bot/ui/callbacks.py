@@ -6,7 +6,9 @@ from aiogram.filters.callback_data import CallbackData
 
 
 class AddFlowAction(CallbackData, prefix="addflow"):
-    action: Literal["start", "continue", "finish", "cancel", "confirm", "back"]
+    action: Literal[
+        "start", "continue", "finish", "cancel", "confirm", "back", "condition"
+    ]
 
 
 class ConditionBoolAction(CallbackData, prefix="condbool"):

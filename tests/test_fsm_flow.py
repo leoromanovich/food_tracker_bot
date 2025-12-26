@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import add_food
+from bot.handlers import add_food, condition
 from bot.ui.callbacks import ConditionBoolAction, ConditionWellBeingAction
 from bot.fsm.states import FoodLogStates
 from bot.services.condition_service import ConditionService
@@ -47,16 +47,15 @@ class StubCallback:
 def _build_state(tmp_path: Path) -> FSMContext:
     file_store = FileStore(tmp_path)
     fake_time = FakeTimeService()
+    condition_service = ConditionService(file_store)
     service = FoodEventService(
         file_store=file_store,
         foods_service=FoodsService(file_store),
-        condition_service=ConditionService(file_store),
+        condition_service=condition_service,
         time_service=fake_time,
     )
-    data = {
-        "food_event_service": service,
-        "time_service": fake_time,
-    }
+    add_food.setup_dependencies(service, fake_time)
+    condition.setup_dependencies(condition_service, fake_time)
 
     storage = MemoryStorage()
     return FSMContext(
@@ -72,17 +71,17 @@ async def _run_flow_test(tmp_path: Path):
     state = _build_state(tmp_path)
 
     start_message = StubMessage("/add")
-    await add_food._start_flow(start_message, state, data)
+    await add_food._start_flow(start_message, state)
     assert await state.get_state() == FoodLogStates.adding_foods.state
 
     user_message = StubMessage("Паста\nСыр")
-    await add_food.handle_foods_input(user_message, state, data)
+    await add_food.handle_foods_input(user_message, state)
 
     finish_callback = StubCallback(StubMessage())
-    await add_food.cb_finish(finish_callback, state, data)
+    await add_food.cb_finish(finish_callback, state)
 
     confirm_callback = StubCallback(StubMessage())
-    await add_food.cb_confirm_finish(confirm_callback, state, data)
+    await add_food.cb_confirm_finish(confirm_callback, state)
     assert await state.get_state() == FoodLogStates.ask_condition_bloating.state
 
     bloating_callback = StubCallback(StubMessage())
@@ -90,7 +89,6 @@ async def _run_flow_test(tmp_path: Path):
         bloating_callback,
         ConditionBoolAction(symptom="bloating", value="yes"),
         state,
-        data,
     )
 
     diarrhea_callback = StubCallback(StubMessage())
@@ -98,12 +96,11 @@ async def _run_flow_test(tmp_path: Path):
         diarrhea_callback,
         ConditionBoolAction(symptom="diarrhea", value="no"),
         state,
-        data,
     )
 
     well_being_callback = StubCallback(StubMessage())
     await add_food.cb_condition_well_being(
-        well_being_callback, ConditionWellBeingAction(score=6), state, data
+        well_being_callback, ConditionWellBeingAction(score=6), state
     )
 
     assert await state.get_state() is None
@@ -211,3 +208,34 @@ async def _run_cancel_on_diarrhea_test(tmp_path: Path) -> None:
     )
     assert list((tmp_path / "FoodLog").glob("*.md")) == []
     assert list((tmp_path / "ConditionLog").glob("*.md")) == []
+
+
+def test_condition_only_flow(tmp_path: Path):
+    asyncio.run(_run_condition_only_flow(tmp_path))
+
+
+async def _run_condition_only_flow(tmp_path: Path) -> None:
+    state = _build_state(tmp_path)
+
+    start_callback = StubCallback(StubMessage())
+    await condition.cb_start_condition(start_callback, state)
+
+    await condition.cb_condition_standalone_bloating(
+        StubCallback(StubMessage()),
+        ConditionBoolAction(symptom="bloating", value="yes"),
+        state,
+    )
+    await condition.cb_condition_standalone_diarrhea(
+        StubCallback(StubMessage()),
+        ConditionBoolAction(symptom="diarrhea", value="no"),
+        state,
+    )
+    await condition.cb_condition_standalone_well_being(
+        StubCallback(StubMessage()),
+        ConditionWellBeingAction(score=7),
+        state,
+    )
+
+    assert await state.get_state() is None
+    condition_logs = list((tmp_path / "ConditionLog").glob("*.md"))
+    assert len(condition_logs) == 1

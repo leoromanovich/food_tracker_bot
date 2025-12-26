@@ -23,35 +23,44 @@ from ..ui.keyboards import (
 
 router = Router()
 
+_food_event_service_instance: FoodEventService | None = None
+_time_service_instance: TimeService | None = None
 
-def _food_event_service(data: dict) -> FoodEventService:
-    service = data.get("food_event_service")
-    if service is None:  # pragma: no cover - wiring issue
+
+def setup_dependencies(
+    food_event_service: FoodEventService, time_service: TimeService
+) -> None:
+    global _food_event_service_instance, _time_service_instance
+    _food_event_service_instance = food_event_service
+    _time_service_instance = time_service
+
+
+def _food_event_service() -> FoodEventService:
+    if _food_event_service_instance is None:  # pragma: no cover - wiring issue
         raise RuntimeError("FoodEventService is not configured")
-    return service
+    return _food_event_service_instance
 
 
-def _time_service(data: dict) -> TimeService:
-    service = data.get("time_service")
-    if service is None:  # pragma: no cover - wiring issue
+def _time_service() -> TimeService:
+    if _time_service_instance is None:  # pragma: no cover - wiring issue
         raise RuntimeError("TimeService is not configured")
-    return service
+    return _time_service_instance
 
 
 @router.message(Command("add"))
-async def cmd_add(message: Message, state: FSMContext, data: dict) -> None:
-    await _start_flow(message, state, data)
+async def cmd_add(message: Message, state: FSMContext) -> None:
+    await _start_flow(message, state)
 
 
 @router.callback_query(AddFlowAction.filter(F.action == "start"))
-async def cb_start(callback: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def cb_start(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
-    await _start_flow(callback.message, state, data)
+    await _start_flow(callback.message, state)
 
 
-async def _start_flow(message: Message, state: FSMContext, data: dict) -> None:
+async def _start_flow(message: Message, state: FSMContext) -> None:
     await state.clear()
-    draft = FoodEventDraft(started_at=_time_service(data).now())
+    draft = FoodEventDraft(started_at=_time_service().now())
     await state.update_data(draft=draft.model_dump())
     await state.set_state(FoodLogStates.adding_foods)
     await message.answer(
@@ -62,7 +71,7 @@ async def _start_flow(message: Message, state: FSMContext, data: dict) -> None:
 
 
 @router.message(FoodLogStates.adding_foods)
-async def handle_foods_input(message: Message, state: FSMContext, data: dict) -> None:
+async def handle_foods_input(message: Message, state: FSMContext) -> None:
     foods = _extract_lines(message.text or "")
     if not foods:
         await message.answer(
@@ -71,7 +80,7 @@ async def handle_foods_input(message: Message, state: FSMContext, data: dict) ->
         )
         return
 
-    draft = await _get_draft(state, data)
+    draft = await _get_draft(state)
     draft.append_foods(foods)
     await state.update_data(draft=draft.model_dump())
 
@@ -88,8 +97,8 @@ async def cb_continue(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(FoodLogStates.adding_foods, AddFlowAction.filter(F.action == "finish"))
-async def cb_finish(callback: CallbackQuery, state: FSMContext, data: dict) -> None:
-    draft = await _get_draft(state, data)
+async def cb_finish(callback: CallbackQuery, state: FSMContext) -> None:
+    draft = await _get_draft(state)
     if not draft.foods_raw:
         await callback.answer("Сначала добавьте ингредиенты.", show_alert=True)
         return
@@ -128,8 +137,8 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(FoodLogStates.confirm_finish, AddFlowAction.filter(F.action == "confirm"))
-async def cb_confirm_finish(callback: CallbackQuery, state: FSMContext, data: dict) -> None:
-    draft = await _get_draft(state, data)
+async def cb_confirm_finish(callback: CallbackQuery, state: FSMContext) -> None:
+    draft = await _get_draft(state)
     if not draft.foods_raw:
         await callback.answer("Добавьте хотя бы один ингредиент.", show_alert=True)
         return
@@ -150,7 +159,6 @@ async def cb_condition_bloating(
     callback: CallbackQuery,
     callback_data: ConditionBoolAction,
     state: FSMContext,
-    data: dict,
 ) -> None:
     if callback_data.symptom != "bloating":
         await callback.answer("Сейчас задаю другой вопрос.", show_alert=True)
@@ -177,7 +185,6 @@ async def cb_condition_diarrhea(
     callback: CallbackQuery,
     callback_data: ConditionBoolAction,
     state: FSMContext,
-    data: dict,
 ) -> None:
     if callback_data.symptom != "diarrhea":
         await callback.answer("Сейчас задаю другой вопрос.", show_alert=True)
@@ -205,7 +212,6 @@ async def cb_condition_well_being(
     callback: CallbackQuery,
     callback_data: ConditionWellBeingAction,
     state: FSMContext,
-    data: dict,
 ) -> None:
     condition = await _get_condition(state)
     condition.well_being = callback_data.score
@@ -213,14 +219,14 @@ async def cb_condition_well_being(
         await callback.answer("Пожалуйста, ответьте на все вопросы.", show_alert=True)
         return
 
-    draft = await _get_draft(state, data)
+    draft = await _get_draft(state)
     model = Condition(
         bloating=bool(condition.bloating),
         diarrhea=bool(condition.diarrhea),
         well_being=condition.well_being or 1,
     )
     await state.set_state(FoodLogStates.persisting)
-    service = _food_event_service(data)
+    service = _food_event_service()
     result = await service.persist_event(draft, model)
     await state.clear()
     await callback.answer()
@@ -235,11 +241,11 @@ def _extract_lines(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-async def _get_draft(state: FSMContext, data: dict) -> FoodEventDraft:
+async def _get_draft(state: FSMContext) -> FoodEventDraft:
     state_data = await state.get_data()
     draft_data = state_data.get("draft")
     if not draft_data:
-        draft_data = FoodEventDraft(started_at=_time_service(data).now()).model_dump()
+        draft_data = FoodEventDraft(started_at=_time_service().now()).model_dump()
         await state.update_data(draft=draft_data)
     return FoodEventDraft.model_validate(draft_data)
 

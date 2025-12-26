@@ -15,3 +15,4 @@ async def cmd_start(message: Message) -> None:
         "Привет! Я помогу зафиксировать приём пищи. Нажмите “Добавить еду”, чтобы начать.",
         reply_markup=start_keyboard(),
     )
+

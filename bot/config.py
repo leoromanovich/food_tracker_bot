@@ -17,8 +17,9 @@ class Settings:
     photo_intake_token: str | None
 
 
-def load_settings() -> Settings:
-    load_dotenv()
+def load_settings(*, use_dotenv: bool = True) -> Settings:
+    if use_dotenv:
+        load_dotenv()
 
     token = os.environ.get("BOT_TOKEN")
     if not token:

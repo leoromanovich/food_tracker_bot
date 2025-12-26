@@ -8,3 +8,9 @@ class FoodLogStates(StatesGroup):
     ask_condition_diarrhea = State()
     ask_condition_well_being = State()
     persisting = State()
+
+
+class ConditionStandaloneStates(StatesGroup):
+    ask_bloating = State()
+    ask_diarrhea = State()
+    ask_well_being = State()

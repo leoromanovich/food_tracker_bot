@@ -9,7 +9,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from .config import Settings, load_settings
-from .handlers import add_food, common, photo, start
+from .handlers import add_food, common, condition, photo, start
 from .logging_setup import setup_logging
 from .services.condition_service import ConditionService
 from .services.file_store import FileStore
@@ -45,13 +45,14 @@ def build_dispatcher(settings: Settings) -> Dispatcher:
         condition_service=condition_service,
         time_service=time_service,
     )
-    dispatcher["food_event_service"] = food_event_service
-    dispatcher["photo_intake_service"] = photo_intake_service
-    dispatcher["time_service"] = time_service
+    add_food.setup_dependencies(food_event_service, time_service)
+    condition.setup_dependencies(condition_service, time_service)
+    photo.setup_dependencies(photo_intake_service, time_service)
 
     routers: Sequence = (
         start.router,
         add_food.router,
+        condition.router,
         photo.router,
         common.router,
     )

@@ -14,7 +14,7 @@ def test_load_settings_reads_data_dir_and_timezone(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("DATA_DIR", str(data_dir))
     monkeypatch.setenv("TZ", "Europe/Moscow")
 
-    settings = load_settings()
+    settings = load_settings(use_dotenv=False)
 
     assert settings.data_dir == data_dir.resolve()
     assert settings.data_dir.exists()
@@ -25,4 +25,5 @@ def test_load_settings_requires_bot_token(monkeypatch):
     monkeypatch.delenv("BOT_TOKEN", raising=False)
 
     with pytest.raises(RuntimeError, match="BOT_TOKEN is not set in environment"):
-        load_settings()
+        load_settings(use_dotenv=False)
+
