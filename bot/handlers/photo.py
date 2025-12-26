@@ -12,32 +12,23 @@ from ..ui.keyboards import adding_foods_keyboard
 
 router = Router()
 
-_photo_intake_service_instance: PhotoIntakeService | None = None
-_time_service_instance: TimeService | None = None
 
-
-def setup_dependencies(
-    photo_intake_service: PhotoIntakeService, time_service: TimeService
-) -> None:
-    global _photo_intake_service_instance, _time_service_instance
-    _photo_intake_service_instance = photo_intake_service
-    _time_service_instance = time_service
-
-
-def _photo_intake_service() -> PhotoIntakeService:
-    if _photo_intake_service_instance is None:  # pragma: no cover - wiring issue
+def _photo_intake_service(data: dict) -> PhotoIntakeService:
+    service = data.get("photo_intake_service")
+    if service is None:  # pragma: no cover - wiring issue
         raise RuntimeError("PhotoIntakeService is not configured")
-    return _photo_intake_service_instance
+    return service
 
 
-def _time_service() -> TimeService:
-    if _time_service_instance is None:  # pragma: no cover - wiring issue
+def _time_service(data: dict) -> TimeService:
+    service = data.get("time_service")
+    if service is None:  # pragma: no cover - wiring issue
         raise RuntimeError("TimeService is not configured")
-    return _time_service_instance
+    return service
 
 
 @router.message(lambda message: bool(message.photo))
-async def handle_photo(message: Message, state: FSMContext) -> None:
+async def handle_photo(message: Message, state: FSMContext, data: dict) -> None:
     if message.bot is None:
         await message.answer("Не удалось обработать фото: бот не инициализирован.")
         return
@@ -57,11 +48,13 @@ async def handle_photo(message: Message, state: FSMContext) -> None:
         return
 
     try:
-        kind = await _photo_intake_service().classify_image(image_bytes)
+        kind = await _photo_intake_service(data).classify_image(image_bytes)
         if kind == "ingredients":
-            ingredients = await _photo_intake_service().ocr_ingredients(image_bytes)
+            ingredients = await _photo_intake_service(data).ocr_ingredients(image_bytes)
         else:
-            ingredients = await _photo_intake_service().dish_to_ingredients(image_bytes)
+            ingredients = await _photo_intake_service(data).dish_to_ingredients(
+                image_bytes
+            )
     except Exception:
         await message.answer(
             "Сервис распознавания недоступен. Попробуйте позже или используйте /add."
@@ -74,7 +67,7 @@ async def handle_photo(message: Message, state: FSMContext) -> None:
         )
         return
 
-    draft = FoodEventDraft(started_at=_time_service().now())
+    draft = FoodEventDraft(started_at=_time_service(data).now())
     draft.append_foods(ingredients)
     await state.clear()
     await state.update_data(draft=draft.model_dump())
