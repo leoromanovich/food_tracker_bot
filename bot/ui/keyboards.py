@@ -10,6 +10,7 @@ def start_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="Добавить еду", callback_data=AddFlowAction(action="start"))
     builder.button(text="Отправить фото (скоро)", callback_data=AddFlowAction(action="back"))
+    builder.button(text="Самочувствие", callback_data=AddFlowAction(action="condition"))
     builder.adjust(1)
     return builder.as_markup()
 

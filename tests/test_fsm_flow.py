@@ -53,10 +53,7 @@ def _build_state(tmp_path: Path) -> FSMContext:
         condition_service=ConditionService(file_store),
         time_service=fake_time,
     )
-    data = {
-        "food_event_service": service,
-        "time_service": fake_time,
-    }
+    add_food.setup_dependencies(service, fake_time)
 
     storage = MemoryStorage()
     return FSMContext(
@@ -72,17 +69,17 @@ async def _run_flow_test(tmp_path: Path):
     state = _build_state(tmp_path)
 
     start_message = StubMessage("/add")
-    await add_food._start_flow(start_message, state, data)
+    await add_food._start_flow(start_message, state)
     assert await state.get_state() == FoodLogStates.adding_foods.state
 
     user_message = StubMessage("Паста\nСыр")
-    await add_food.handle_foods_input(user_message, state, data)
+    await add_food.handle_foods_input(user_message, state)
 
     finish_callback = StubCallback(StubMessage())
-    await add_food.cb_finish(finish_callback, state, data)
+    await add_food.cb_finish(finish_callback, state)
 
     confirm_callback = StubCallback(StubMessage())
-    await add_food.cb_confirm_finish(confirm_callback, state, data)
+    await add_food.cb_confirm_finish(confirm_callback, state)
     assert await state.get_state() == FoodLogStates.ask_condition_bloating.state
 
     bloating_callback = StubCallback(StubMessage())
@@ -90,7 +87,6 @@ async def _run_flow_test(tmp_path: Path):
         bloating_callback,
         ConditionBoolAction(symptom="bloating", value="yes"),
         state,
-        data,
     )
 
     diarrhea_callback = StubCallback(StubMessage())
@@ -98,12 +94,11 @@ async def _run_flow_test(tmp_path: Path):
         diarrhea_callback,
         ConditionBoolAction(symptom="diarrhea", value="no"),
         state,
-        data,
     )
 
     well_being_callback = StubCallback(StubMessage())
     await add_food.cb_condition_well_being(
-        well_being_callback, ConditionWellBeingAction(score=6), state, data
+        well_being_callback, ConditionWellBeingAction(score=6), state
     )
 
     assert await state.get_state() is None

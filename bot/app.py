@@ -45,9 +45,8 @@ def build_dispatcher(settings: Settings) -> Dispatcher:
         condition_service=condition_service,
         time_service=time_service,
     )
-    dispatcher["food_event_service"] = food_event_service
-    dispatcher["photo_intake_service"] = photo_intake_service
-    dispatcher["time_service"] = time_service
+    add_food.setup_dependencies(food_event_service, time_service)
+    photo.setup_dependencies(photo_intake_service, time_service)
 
     routers: Sequence = (
         start.router,
