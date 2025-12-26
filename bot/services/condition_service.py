@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import yaml
-
 from ..domain.models import Condition
 from .file_store import FileStore
+from .markdown_helpers import build_log_filename, render_frontmatter
 
 
 @dataclass(slots=True)
@@ -24,14 +23,10 @@ class ConditionService:
     async def persist(
         self, timestamp: datetime, short_id: str, condition: Condition
     ) -> ConditionRecord:
-        filename = self._build_filename(timestamp, short_id)
+        filename = build_log_filename(timestamp, short_id)
         content = self._render_markdown(timestamp, condition)
         path = await self.file_store.write_text(Path(self.log_dir) / filename, content)
         return ConditionRecord(path=path, content=content)
-
-    def _build_filename(self, timestamp: datetime, short_id: str) -> str:
-        slug = timestamp.strftime("%Y-%m-%d_%H-%M-%S")
-        return f"{slug}_{short_id}.md"
 
     def _render_markdown(self, timestamp: datetime, condition: Condition) -> str:
         payload = {
@@ -43,5 +38,4 @@ class ConditionService:
                 "well_being": condition.well_being,
             },
         }
-        yaml_body = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False).strip()
-        return f"---\n{yaml_body}\n---\n"
+        return render_frontmatter(payload)
