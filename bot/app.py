@@ -11,6 +11,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from .config import Settings, load_settings
 from .handlers import add_food, breath, common, condition, photo, start
 from .logging_setup import setup_logging
+from .services.composition_extractor import CompositionExtractor
 from .services.breath_reminder_service import BreathReminderService
 from .services.breath_scheduler import BreathReminderScheduler
 from .services.condition_service import ConditionService
@@ -33,6 +34,7 @@ def build_dispatcher(settings: Settings) -> Tuple[Dispatcher, BreathReminderSche
     time_service = TimeService(settings.timezone)
     foods_service = FoodsService(file_store)
     condition_service = ConditionService(file_store)
+    composition_extractor = CompositionExtractor()
     breath_reminder_service = BreathReminderService(file_store)
     if settings.photo_intake_url:
         photo_config = PhotoIntakeConfig(
@@ -48,7 +50,7 @@ def build_dispatcher(settings: Settings) -> Tuple[Dispatcher, BreathReminderSche
         condition_service=condition_service,
         time_service=time_service,
     )
-    add_food.setup_dependencies(food_event_service, time_service)
+    add_food.setup_dependencies(food_event_service, time_service, composition_extractor)
     condition.setup_dependencies(condition_service, time_service)
     breath.setup_dependencies(condition_service, time_service, breath_reminder_service)
     photo.setup_dependencies(photo_intake_service, time_service)

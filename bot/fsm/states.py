@@ -8,6 +8,8 @@ class FoodLogStates(StatesGroup):
     ask_condition_diarrhea = State()
     ask_condition_well_being = State()
     persisting = State()
+    waiting_photo = State()
+    guess_input = State()
 
 
 class ConditionStandaloneStates(StatesGroup):
