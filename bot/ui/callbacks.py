@@ -14,6 +14,10 @@ class AddFlowAction(CallbackData, prefix="addflow"):
         "confirm",
         "back",
         "condition",
+        "photo_start",
+        "guess_start",
+        "composition_accept",
+        "composition_retry",
     ]
 
 

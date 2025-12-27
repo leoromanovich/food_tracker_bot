@@ -18,6 +18,7 @@ from bot.services.condition_service import ConditionService
 from bot.services.file_store import FileStore
 from bot.services.food_event_service import FoodEventService
 from bot.services.foods_service import FoodsService
+from bot.services.composition_extractor import CompositionExtractor
 
 
 class FakeTimeService:
@@ -41,11 +42,34 @@ class StubUser:
         self.id = user_id
 
 
+class StubBot:
+    async def get_file(self, file_id: str):
+        return type("File", (), {"file_path": f"{file_id}.jpg"})
+
+    async def download_file(self, file_path: str):
+        from io import BytesIO
+
+        return BytesIO(b"fake-image")
+
+
+class StubPhoto:
+    def __init__(self, file_id: str = "photo-file"):
+        self.file_id = file_id
+
+
 class StubMessage:
-    def __init__(self, text: str = "", chat_id: int = 1):
+    def __init__(
+        self,
+        text: str = "",
+        chat_id: int = 1,
+        photos: list[StubPhoto] | None = None,
+        bot: StubBot | None = None,
+    ):
         self.text = text
         self.replies: list[str] = []
         self.chat = StubChat(chat_id)
+        self.bot = bot
+        self.photo = photos or []
 
     async def answer(self, text: str, reply_markup=None):
         self.replies.append(text)
@@ -61,6 +85,21 @@ class StubCallback:
         self.answers.append(text or "")
 
 
+class StubCompositionExtractor:
+    async def recognize_from_image(
+        self, data: bytes, *, prompt: str | None = None, mime: str = "image/jpeg"
+    ) -> str:
+        return "паста\nсыр"
+
+    async def guess_from_text(self, dish_name: str, prompt: str | None = None) -> str:
+        return "гречка\nкурица"
+
+    async def guess_from_image(
+        self, data: bytes, *, prompt: str | None = None, mime: str = "image/jpeg"
+    ) -> str:
+        return "рис\nовощи"
+
+
 def _build_state(tmp_path: Path) -> FSMContext:
     file_store = FileStore(tmp_path)
     fake_time = FakeTimeService()
@@ -72,7 +111,7 @@ def _build_state(tmp_path: Path) -> FSMContext:
         condition_service=condition_service,
         time_service=fake_time,
     )
-    add_food.setup_dependencies(service, fake_time)
+    add_food.setup_dependencies(service, fake_time, StubCompositionExtractor())
     condition.setup_dependencies(condition_service, fake_time)
     breath.setup_dependencies(condition_service, fake_time, reminder_service)
 
@@ -251,6 +290,46 @@ async def _run_breath_skip(tmp_path: Path) -> None:
     await breath.cb_breath_skip(callback)
     targets = list((tmp_path / "ConditionLog").glob("*breath.md"))
     assert targets == []
+
+
+def test_photo_recognition_adds_lines(tmp_path: Path):
+    asyncio.run(_run_photo_recognition(tmp_path))
+
+
+async def _run_photo_recognition(tmp_path: Path) -> None:
+    state = _build_state(tmp_path)
+    start_message = StubMessage("/add")
+    await add_food._start_flow(start_message, state)
+    callback = StubCallback(StubMessage())
+    await add_food.cb_photo_start(callback, state)
+    assert await state.get_state() == FoodLogStates.waiting_photo.state
+
+    photo_message = StubMessage(
+        photos=[StubPhoto()],
+        bot=StubBot(),
+    )
+    await add_food.handle_photo_for_composition(photo_message, state)
+    assert await state.get_state() == FoodLogStates.adding_foods.state
+    draft = await state.get_data()
+    assert draft.get("pending_lines") == ["паста", "сыр"]
+
+
+def test_guess_from_text_adds_lines(tmp_path: Path):
+    asyncio.run(_run_guess_text(tmp_path))
+
+
+async def _run_guess_text(tmp_path: Path) -> None:
+    state = _build_state(tmp_path)
+    start_message = StubMessage("/add")
+    await add_food._start_flow(start_message, state)
+    callback = StubCallback(StubMessage())
+    await add_food.cb_guess_start(callback, state)
+
+    guess_message = StubMessage("Стейк гречневый")
+    await add_food.handle_guess_input(guess_message, state)
+    data = await state.get_data()
+    assert data.get("pending_source") == "guess"
+    assert data.get("pending_lines") == ["гречка", "курица"]
 
 
 def test_condition_only_flow(tmp_path: Path):

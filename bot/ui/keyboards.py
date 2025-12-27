@@ -17,7 +17,6 @@ from .callbacks import (
 def start_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="Добавить еду", callback_data=AddFlowAction(action="start"))
-    builder.button(text="Отправить фото (скоро)", callback_data=AddFlowAction(action="back"))
     builder.button(text="Самочувствие", callback_data=AddFlowAction(action="condition"))
     builder.button(text="Другое", callback_data=OtherAction(action="menu"))
     builder.adjust(1)
@@ -29,6 +28,14 @@ def adding_foods_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="Продолжить ввод", callback_data=AddFlowAction(action="continue"))
     builder.button(text="Завершить", callback_data=AddFlowAction(action="finish"))
     builder.button(text="Отменить", callback_data=AddFlowAction(action="cancel"))
+    builder.button(
+        text="Распознать состав по фото",
+        callback_data=AddFlowAction(action="photo_start"),
+    )
+    builder.button(
+        text="Предположить состав",
+        callback_data=AddFlowAction(action="guess_start"),
+    )
     builder.adjust(1)
     return builder.as_markup()
 
@@ -112,4 +119,22 @@ def breath_reminder_keyboard() -> InlineKeyboardMarkup:
         )
     builder.button(text="Отмена", callback_data=OtherAction(action="back"))
     builder.adjust(3)
+    return builder.as_markup()
+
+
+def composition_result_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="Добавить как есть",
+        callback_data=AddFlowAction(action="composition_accept"),
+    )
+    builder.button(
+        text="Распознать заново",
+        callback_data=AddFlowAction(action="composition_retry"),
+    )
+    builder.button(
+        text="Отменить",
+        callback_data=AddFlowAction(action="cancel"),
+    )
+    builder.adjust(1)
     return builder.as_markup()
