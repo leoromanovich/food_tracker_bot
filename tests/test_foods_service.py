@@ -22,3 +22,5 @@ async def _run_collision_test(tmp_path: Path):
     contents = [Path(path).read_text(encoding="utf-8") for path in results]
     assert 'original_name: "сыр"' in contents[0] + contents[1]
     assert 'original_name: "сыр!"' in contents[0] + contents[1]
+    for content in contents:
+        assert "#foodtracker" in content
