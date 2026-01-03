@@ -75,5 +75,6 @@ class FoodsService:
             f'original_name: "{escaped_food}"\n'
             f'filename: "{escaped_filename}"\n'
             "---\n\n"
-            f"# {food}\n"
+            f"# {food}\n\n"
+            "#foodtracker\n"
         )
