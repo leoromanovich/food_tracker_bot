@@ -74,13 +74,19 @@ def build_dispatcher(settings: Settings) -> Tuple[Dispatcher, BreathReminderSche
     return dispatcher, breath_scheduler
 
 
+class IPv4AiohttpSession(AiohttpSession):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # TCPConnector будет создан с этими параметрами
+        self._connector_init["family"] = socket.AF_INET
+        self._should_reset_connector = True
+
 async def run() -> None:
     setup_logging()
     settings = load_settings()
     dispatcher, breath_scheduler = build_dispatcher(settings)
-    session = AiohttpSession(
-        connector=TCPConnector(family=socket.AF_INET),
-        timeout=ClientTimeout(total=30),  # можно 30-60
+    session = IPv4AiohttpSession(
+        timeout=30,  # можно 30-60
     )
     bot = Bot(
         token=settings.bot_token,
