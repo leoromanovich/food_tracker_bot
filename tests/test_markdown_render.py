@@ -43,4 +43,6 @@ async def _run_persist_test(tmp_path: Path):
 
     assert "---" in food_log_content
     assert "[[паста]]" in food_log_content
-    assert "symptoms" in condition_log_content
+    assert "bloating" in condition_log_content
+    assert "#foodtracker" in food_log_content
+    assert "#foodtracker" in condition_log_content

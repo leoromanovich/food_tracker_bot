@@ -32,11 +32,9 @@ class ConditionService:
         payload = {
             "date": timestamp.strftime("%Y-%m-%d"),
             "time": timestamp.strftime("%H:%M"),
-            "symptoms": {
-                "bloating": bool(condition.bloating),
-                "diarrhea": bool(condition.diarrhea),
-                "well_being": condition.well_being,
-            },
+            "bloating": bool(condition.bloating),
+            "diarrhea": bool(condition.diarrhea),
+            "well_being": condition.well_being,
         }
         return render_frontmatter(payload)
 
@@ -45,7 +43,7 @@ class ConditionService:
         payload = {
             "date": timestamp.strftime("%Y-%m-%d"),
             "time": timestamp.strftime("%H:%M"),
-            "symptoms": {"breath_smell": severity},
+            "breath_smell": severity,
         }
         content = render_frontmatter(payload)
         path = await self.file_store.write_text(Path(self.log_dir) / filename, content)

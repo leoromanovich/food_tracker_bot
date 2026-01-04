@@ -79,8 +79,11 @@ def load_conditions(directory: Path) -> Dict[str, bool]:
         return result
     for file in directory.glob("*.md"):
         payload = load_frontmatter(file)
-        symptoms = payload.get("symptoms") or {}
-        bloating = bool(symptoms.get("bloating"))
+        if "bloating" in payload:
+            bloating = bool(payload.get("bloating"))
+        else:
+            symptoms = payload.get("symptoms") or {}
+            bloating = bool(symptoms.get("bloating"))
         result[file.stem] = bloating
     return result
 
