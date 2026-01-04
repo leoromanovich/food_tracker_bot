@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import socket
 import asyncio
 from typing import Sequence, Tuple
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiohttp import ClientTimeout, TCPConnector
 
 from .config import Settings, load_settings
 from .handlers import add_food, breath, common, condition, photo, start
@@ -75,9 +78,14 @@ async def run() -> None:
     setup_logging()
     settings = load_settings()
     dispatcher, breath_scheduler = build_dispatcher(settings)
+    session = AiohttpSession(
+        connector=TCPConnector(family=socket.AF_INET),
+        timeout=ClientTimeout(total=30),  # можно 30-60
+    )
     bot = Bot(
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        session=session,
     )
 
     @dispatcher.startup.register

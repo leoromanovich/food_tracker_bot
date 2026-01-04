@@ -17,4 +17,4 @@ def test_render_frontmatter_matches_yaml_output():
         "foods": ["[[Паста]]", "[[Сыр]]"],
     }
     yaml_body = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False).strip()
-    assert render_frontmatter(payload) == f"---\n{yaml_body}\n---\n"
+    assert render_frontmatter(payload) == f"---\n{yaml_body}\n---\n\n#foodtracker\n"
